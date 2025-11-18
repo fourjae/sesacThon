@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI 실시간 민원 상담</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <style>
+    :root {
+      --bg-light-blue: #e5f2ff;
+      --bg-blue-soft: #c8e1ff;
+      --accent-blue: #2b7cff;
+      --accent-blue-soft: #a7c8ff;
+      --text-main: #0f172a;
+      --text-sub: #64748b;
+      --border-light: #e2e8f0;
+      --bubble-user: #eff6ff;
+      --bubble-bot: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
+      background: linear-gradient(180deg, var(--bg-light-blue), #ffffff);
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      min-height: 100vh;
+      color: var(--text-main);
+    }
+
+    .app-shell {
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      max-height: 860px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.15);
+      border-radius: 28px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* 헤더 */
+    .app-header {
+      padding: 10px 14px 10px;
+      border-bottom: 1px solid var(--border-light);
+      background: linear-gradient(135deg, var(--bg-blue-soft), #ffffff);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .header-menu-btn {
+      border: none;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 999px;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 17px;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+      margin-right: 2px;
+    }
+
+    .header-menu-btn span {
+      transform: translateY(-1px);
+    }
+
+    .app-header-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      background: #ffffffaa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .app-header-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .app-header-title-main {
+      font-size: 15px;
+      font-weight: 700;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .app-header-title-sub {
+      font-size: 12px;
+      color: var(--text-sub);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    /* 메인 레이아웃 */
+    .app-main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+      background: linear-gradient(180deg, #f5f9ff, #ffffff);
+      position: relative;
+    }
+
+    /* 왼쪽 Chats(최근 민원 목록) */
+    .sidebar {
+      max-width: 180px;
+      min-width: 130px;
+      border-right: 1px solid var(--border-light);
+      display: flex;
+      flex-direction: column;
+      background: #f2f7ff;
+      z-index: 20;
+      transition: transform 0.22s ease, box-shadow 0.22s ease, opacity 0.18s ease, width 0.22s ease;
+      flex-shrink: 0;      /* 추가 */
+      overflow: hidden;    /* 추가: width 줄어들 때 안의 내용 안 튀어나오게 */
+      width: 34%;
+    }
+
+    .sidebar-header {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .sidebar-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1d4ed8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sidebar-title span.icon {
+      font-size: 14px;
+    }
+
+    .sidebar-new {
+      border: none;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      background: #e0edff;
+      color: #1d4ed8;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sidebar-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 4px 8px;
+    }
+
+    .chat-item {
+      border-radius: 14px;
+      padding: 7px 7px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .chat-item.active {
+      background: linear-gradient(135deg, #dbeafe, #eff6ff);
+      border-color: rgba(59, 130, 246, 0.7);
+      box-shadow: 0 4px 8px rgba(37, 99, 235, 0.25);
+    }
+
+    .chat-item-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #0f172a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .chat-item-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: #1d4ed8;
+      color: #e5f2ff;
+      flex-shrink: 0;
+    }
+
+    .chat-item-snippet {
+      font-size: 10px;
+      color: var(--text-sub);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .chat-item-meta {
+      font-size: 9px;
+      color: #94a3b8;
+      margin-top: 1px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* 오른쪽 채팅 영역 래퍼 */
+    .chat-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .status-bar {
+      padding: 6px 12px 8px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fbff;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .status-pill {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #e0edff;
+      color: #1d4ed8;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+    }
+
+    .status-text {
+      font-size: 11px;
+      color: var(--text-sub);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 채팅 스크롤 영역 */
+    .chat-area {
+      flex: 1;
+      padding: 12px 14px 10px;
+      overflow-y: auto;
+      background: linear-gradient(180deg, #f5f9ff, #ffffff);
+      scroll-behavior: smooth;
+    }
+
+    .date-separator {
+      text-align: center;
+      margin: 8px 0 10px;
+    }
+
+    .date-pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.16);
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    .message {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .bot-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+
+    .message-bot {
+      justify-content: flex-start;
+    }
+
+    .message-user {
+      justify-content: flex-end;
+    }
+
+    .message-bubble {
+      max-width: 82%;
+      border-radius: 16px;
+      padding: 8px 10px;
+      font-size: 13px;
+      line-height: 1.4;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+    }
+
+    .message-bot .message-bubble {
+      border-bottom-left-radius: 4px;
+      background: var(--bubble-bot);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .message-user .message-bubble {
+      border-bottom-right-radius: 4px;
+      background: var(--bubble-user);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 3px;
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    .message-role {
+      font-weight: 600;
+    }
+
+    .message-time {
+      font-size: 10px;
+      opacity: 0.85;
+    }
+
+    /* 입력 영역 */
+    .input-section {
+      padding: 10px 12px 12px;
+      border-top: 1px solid var(--border-light);
+      background: #ffffffee;
+      backdrop-filter: blur(14px);
+      flex-shrink: 0;
+    }
+
+    .input-helper {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .input-helper span.icon {
+      font-size: 13px;
+    }
+
+    .input-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stt-toggle {
+      border: none;
+      padding: 6px 8px;
+      border-radius: 999px;
+      background: #e0edff;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #1d4ed8;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
+    }
+
+    .stt-toggle:active {
+      transform: scale(0.97);
+    }
+
+    .stt-toggle-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #9ca3af;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stt-toggle-dot::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: inherit;
+      background: #ffffff;
+    }
+
+    .stt-toggle.on {
+      background: var(--accent-blue);
+      color: #ffffff;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.5),
+                  0 6px 16px rgba(37, 99, 235, 0.4);
+    }
+
+    .stt-toggle.on .stt-toggle-dot {
+      background: #22c55e;
+    }
+
+    .input-field-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: #f9fbff;
+      padding: 2px 3px 2px 10px;
+    }
+
+    .chat-input {
+      border: none;
+      background: transparent;
+      flex: 1;
+      font-size: 13px;
+      padding: 6px 4px;
+      outline: none;
+    }
+
+    .chat-input::placeholder {
+      color: #9ca3af;
+    }
+
+    .send-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--accent-blue);
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s ease, transform 0.08s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5);
+    }
+
+    .send-btn span.icon {
+      font-size: 13px;
+    }
+
+    .send-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
+    }
+
+    /* 토스트 */
+    .toast {
+      position: absolute;
+      inset-inline: 0;
+      bottom: 80px;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .toast-inner {
+      background: rgba(15, 23, 42, 0.85);
+      color: #e5f2ff;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.55);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+
+    .toast-inner.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* 사이드바 숨김 상태 (모바일/PC 공통) */
+    .app-shell.sidebar-hidden .sidebar {
+      transform: translateX(-100%); /* 슬라이드 애니메이션 유지하고 싶으면 남겨둬도 됨 */
+      box-shadow: none;
+      opacity: 0;
+      pointer-events: none;
+      
+      /* 여기부터 추가 */
+      width: 0;
+      min-width: 0;
+      max-width: 0;
+      border-right: none;
+    }
+
+
+    .app-shell.sidebar-hidden .chat-pane {
+      flex: 1;
+    }
+
+    /* 모바일일 때는 오버레이 느낌 */
+    .sidebar-backdrop {
+      display: none;
+    }
+
+    @media (max-width: 520px) {
+      .app-shell {
+        border-radius: 0;
+        max-height: none;
+        height: 100vh;
+        box-shadow: none;
+      }
+
+      .sidebar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        box-shadow: 4px 0 22px rgba(15, 23, 42, 0.45);
+      }
+
+      .app-shell.sidebar-hidden .sidebar {
+        box-shadow: none;
+      }
+
+      .sidebar-backdrop {
+        display: block;
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s ease;
+        z-index: 15;
+      }
+
+      .app-shell:not(.sidebar-hidden) .sidebar-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <header class="app-header">
+      <button class="header-menu-btn" id="chatListToggle" aria-label="채팅 목록 열기/닫기">
+        <span>☰</span>
+      </button>
+      <div class="app-header-icon">📞</div>
+      <div class="app-header-title">
+        <div class="app-header-title-main">AI 실시간 민원 상담</div>
+        <div class="app-header-title-sub">120 다산콜센터 · 민원 자동 처리 도우미 </div>
+      </div>
+    </header>
+
+    <div class="app-main">
+      <!-- 모바일에서 사이드바 뒷배경 -->
+      <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+      <!-- 왼쪽: 내가 문의한 Chats 목록 -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            <span class="icon">💬</span>
+            <span>나의 민원 기록</span>
+          </div>
+          <button class="sidebar-new" id="newChatBtn">
+            <span>새 채팅</span>
+          </button>
+        </div>
+        <div class="sidebar-list" id="chatList">
+          <div class="chat-item active">
+            <div class="chat-item-title">
+              <span>가로등 신고</span>
+              <span class="chat-item-badge">진행중</span>
+            </div>
+            <div class="chat-item-snippet">
+              강남역 3번 출구 앞 버스정류장 가로등이 꺼져 있습니다.
+            </div>
+            <div class="chat-item-meta">
+              <span>오늘 · 3:13</span>
+              <span>도로·안전</span>
+            </div>
+          </div>
+
+          <div class="chat-item">
+            <div class="chat-item-title">
+              <span>버스 정류장 혼잡</span>
+            </div>
+            <div class="chat-item-snippet">
+              출퇴근 시간에 ○○역 2번 출구 앞 버스 정류장 대기줄이 너무 길어 인도가 막힙니다.
+            </div>
+            <div class="chat-item-meta">
+              <span>어제</span>
+              <span>대중교통</span>
+            </div>
+          </div>
+
+          <div class="chat-item">
+            <div class="chat-item-title">
+              <span>생활 하수도 악취</span>
+            </div>
+            <div class="chat-item-snippet">
+              집 앞 맨홀에서 심한 악취가 올라와 창문을 못 열겠습니다.
+            </div>
+            <div class="chat-item-meta">
+              <span>3일 전</span>
+              <span>하수도</span>
+            </div>
+          </div>
+
+          <div class="chat-item">
+            <div class="chat-item-title">
+              <span>소음 민원(공사)</span>
+            </div>
+            <div class="chat-item-snippet">
+              심야 시간에 공사 소음이 계속 나서 수면에 방해가 됩니다.
+            </div>
+            <div class="chat-item-meta">
+              <span>5일 전</span>
+              <span>소음</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 오른쪽: 실제 채팅 화면 -->
+      <div class="chat-pane">
+        <div class="status-bar">
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>상담 가능</span>
+          </div>
+          <div class="status-text">음성·텍스트로 언제든 민원을 알려주세요.</div>
+        </div>
+
+        <main class="chat-area" id="chatArea">
+          <div class="date-separator">
+            <span class="date-pill">오늘</span>
+          </div>
+
+          <div class="message message-bot">
+            <img src="./bot.png" class="bot-avatar" alt="AI">
+            <div class="message-bubble">
+              <div class="message-meta">
+                <span class="message-role">AI 상담봇</span>
+                <span class="message-time">오후 3:12</span>
+              </div>
+              <div>
+                안녕하세요 👋<br />
+                서울시 120 다산콜센터 AI입니다.<br /><br />
+                <b>도로, 대중교통, 쓰레기, 소음, 안전 신고</b> 등<br />
+                궁금하신 민원을 음성 또는 텍스트로 보내주세요.
+              </div>
+            </div>
+          </div>
+
+          <div class="message message-user">
+            <div class="message-bubble">
+              <div class="message-meta">
+                <span class="message-role">나</span>
+                <span class="message-time">오후 3:15</span>
+              </div>
+              <div>
+                버스 정류장 가로등이 꺼져 있는데 신고하려면 어떻게 해야 하나요?
+              </div>
+            </div>
+          </div>
+
+          <div class="message message-bot">
+            <img src="./bot.png" class="bot-avatar" alt="AI">
+            <div class="message-bubble">
+              <div class="message-meta">
+                <span class="message-role">AI 상담봇</span>
+                <span class="message-time">오후 3:15</span>
+              </div>
+              <div>
+                위치와 상황을 알려주시면<br />
+                <b>가로등 담당 부서로 민원을 자동 접수</b>해 드릴게요.<br />
+                <br />
+                예시)<br />
+                “강남역 3번 출구 앞 버스정류장 가로등이 꺼져 있습니다.”
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <section class="input-section">
+          <div class="input-helper">
+            <span class="icon">💡</span>
+            마이크 모드를 켜면 음성으로 질문이 가능합니다.
+          </div>
+          <form class="input-bar" id="chatForm">
+            <button type="button" class="stt-toggle" id="sttToggle" aria-pressed="false">
+              <div class="stt-toggle-dot"></div>
+              <span class="stt-label">마이크 모드</span>
+            </button>
+
+            <div class="input-field-wrap">
+              <input
+                id="chatInput"
+                class="chat-input"
+                type="text"
+                autocomplete="off"
+                placeholder="메시지를 입력해주세요."
+              />
+              <button type="submit" class="send-btn">
+                <span>전송</span>
+                <span class="icon">➤</span>
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <div class="toast" aria-live="polite" aria-atomic="true">
+      <div class="toast-inner" id="toastInner">
+        <span>🎙️</span>
+        <span id="toastText">마이크 모드가 켜졌어요.</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const appShell = document.getElementById("appShell");
+    const chatArea = document.getElementById("chatArea");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const sttToggle = document.getElementById("sttToggle");
+    const sttLabel = sttToggle.querySelector(".stt-label");
+    const toastInner = document.getElementById("toastInner");
+    const toastText = document.getElementById("toastText");
+    const chatList = document.getElementById("chatList");
+    const newChatBtn = document.getElementById("newChatBtn");
+    const chatListToggle = document.getElementById("chatListToggle");
+    const sidebarBackdrop = document.getElementById("sidebarBackdrop");
+
+    // STT 토글 UX
+    sttToggle.addEventListener("click", () => {
+      const isOn = sttToggle.classList.toggle("on");
+      sttToggle.setAttribute("aria-pressed", String(isOn));
+      sttLabel.textContent = isOn ? "마이크 모드" : "마이크 모드";
+
+      toastText.textContent = isOn
+        ? "마이크 모드가 켜졌어요. 마이크로 말씀해 보세요."
+        : "마이크 모드가 꺼졌어요. 텍스트로 입력해 주세요.";
+      showToast();
+    });
+
+    function showToast() {
+      toastInner.classList.add("show");
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => {
+        toastInner.classList.remove("show");
+      }, 5000);
+    }
+
+    // 채팅 전송 UX (데모)
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+      addUserMessage(text);
+      chatInput.value = "";
+      setTimeout(() => {
+        addBotMessage("접수하신 내용은 추가 확인이 필요합니다. 😊 상담사와 연결해드릴까요?");
+      }, 500);
+    });
+
+    function addUserMessage(text) {
+      const msgEl = document.createElement("div");
+      msgEl.className = "message message-user";
+      msgEl.innerHTML = `
+        <div class="message-bubble">
+          <div class="message-meta">
+            <span class="message-role">나</span>
+            <span class="message-time">${getTimeString()}</span>
+          </div>
+          <div>${escapeHtml(text)}</div>
+        </div>
+      `;
+      chatArea.appendChild(msgEl);
+      chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    function addBotMessage(text) {
+      const msgEl = document.createElement("div");
+      msgEl.className = "message message-bot";
+      msgEl.innerHTML = `
+        <img src="bot.png" class="bot-avatar" alt="AI">
+        <div class="message-bubble">
+          <div class="message-meta">
+            <span class="message-role">AI 상담봇</span>
+            <span class="message-time">${getTimeString()}</span>
+          </div>
+        <div>${escapeHtml(text)}</div>
+      </div>
+    `;
+  chatArea.appendChild(msgEl);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+
+    function getTimeString() {
+      const d = new Date();
+      let h = d.getHours();
+      const m = d.getMinutes().toString().padStart(2, "0");
+      const isPM = h >= 12;
+      if (h === 0) h = 12;
+      else if (h > 12) h -= 12;
+      return `${isPM ? "오후" : "오전"} ${h}:${m}`;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // 사이드바 보였다/안 보였다 토글 (버튼)
+    function toggleSidebar(force) {
+      const isHidden = appShell.classList.contains("sidebar-hidden");
+      const nextHidden = typeof force === "boolean" ? force : !isHidden;
+      if (nextHidden) {
+        appShell.classList.add("sidebar-hidden");
+      } else {
+        appShell.classList.remove("sidebar-hidden");
+      }
+    }
+
+    chatListToggle.addEventListener("click", () => {
+      toggleSidebar();
+    });
+
+    sidebarBackdrop.addEventListener("click", () => {
+      toggleSidebar(true);
+    });
+
+    // 새 채팅 버튼 UX (데모)
+    newChatBtn.addEventListener("click", () => {
+      const item = document.createElement("div");
+      item.className = "chat-item active";
+      Array.from(chatList.querySelectorAll(".chat-item")).forEach((el) =>
+        el.classList.remove("active")
+      );
+      item.innerHTML = `
+        <div class="chat-item-title">
+          <span>새 민원 상담</span>
+          <span class="chat-item-badge">새로 생성</span>
+        </div>
+        <div class="chat-item-snippet">
+          아직 내용이 없습니다. 첫 민원을 입력해 보세요.
+        </div>
+        <div class="chat-item-meta">
+          <span>지금</span>
+          <span>미분류</span>
+        </div>
+      `;
+      chatList.prepend(item);
+      attachChatItemClick(item);
+
+      chatArea.innerHTML = `
+        <div class="date-separator">
+          <span class="date-pill">오늘</span>
+        </div>
+        <div class="message message-bot">
+          <img src="./bot.png" class="bot-avatar" alt="AI">
+          <div class="message-bubble">
+            <div class="message-meta">
+              <span class="message-role">AI 상담봇</span>
+              <span class="message-time">${getTimeString()}</span>
+            </div>
+            <div>
+              새 민원 상담을 시작합니다.<br />
+              위치, 상황, 불편 사항을 구체적으로 알려주시면<br />
+              요약·분류 후 담당 부서로 연결해 드릴게요.
+            </div>
+          </div>
+        </div>
+      `;
+
+      // 새 채팅 눌렀으면 사이드바 닫기
+      toggleSidebar(true);
+    });
+
+    // 기존 리스트에 클릭 이벤트 연결
+    Array.from(chatList.querySelectorAll(".chat-item")).forEach(attachChatItemClick);
+
+    function attachChatItemClick(el) {
+      el.addEventListener("click", () => {
+        Array.from(chatList.querySelectorAll(".chat-item")).forEach((x) =>
+          x.classList.remove("active")
+        );
+        el.classList.add("active");
+
+        // 아무 채팅 아이템 눌러도 사이드바 닫힘 (모바일/PC 공통)
+        // toggleSidebar(true);
+      });
+    }
+
+    // 처음 로딩 시: 모바일 느낌 위해 기본값은 사이드바 닫힌 상태로
+    if (window.innerWidth <= 520) {
+      appShell.classList.add("sidebar-hidden");
+    }
+  </script>
+</body>
+</html>
